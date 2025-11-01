@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+  <section class="hero">
+    <h1>Discover & Review Campus Food</h1>
+    <form method="get" action="/" class="search-form">
+      <input type="text" name="q" placeholder="Search places..." value="{{ q }}">
+      <input type="text" name="tag" placeholder="Tag" value="{{ tag }}">
+      <button type="submit" class="btn">Search</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Trending</h2>
+    <div class="card-list">
+      {% for t in trending %}
+        <div class="card">
+          <h3><a href="{{ url_for('place_view', place_id=t.id) }}">{{ t.name }}</a></h3>
+          <div class="muted">{{ t.type }}</div>
+          <div>⭐ {{ '%.1f'|format(t.avgRating) }}</div>
+        </div>
+      {% else %}
+        <p>No trending places yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h2>All Places</h2>
+    <div class="card-list">
+      {% for p in places %}
+        <div class="card">
+          <h3><a href="{{ url_for('place_view', place_id=p.id) }}">{{ p.name }}</a></h3>
+          <div class="muted">{{ p.type }} — {{ p.address }}</div>
+          <div>Tags: {% for t in p.tags %}<span class="tag">{{ t }}</span>{% endfor %}</div>
+          <div>⭐ {{ '%.1f'|format(p.avgRating) }}</div>
+        </div>
+      {% else %}
+        <p>No places found.</p>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+

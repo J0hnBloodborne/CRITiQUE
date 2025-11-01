@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="place-header panel">
+    <div class="place-title-row">
+      <h2 class="place-title">{{ place.name }}</h2>
+      {% if current_user and current_user.role == 'admin' %}
+        <form method="post" action="/places/{{ place.id }}/delete">
+          <button type="submit" class="btn btn-danger">Delete Place</button>
+        </form>
+      {% endif %}
+    </div>
+    <div class="place-meta">
+      <span class="muted">Added by {{ place.creatorName or 'Unknown' }}</span>
+      <span class="divider">•</span>
+      <span class="muted">{{ place.type }}{% if place.address %} — {{ place.address }}{% endif %}</span>
+    </div>
+    {% if place.description %}
+      <div class="place-description">{{ place.description }}</div>
+    {% endif %}
+    <div class="place-tags">
+      {% for t in place.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+    </div>
+    <div class="place-stats">
+      <div class="stat-pill">⭐ Average rating: <strong>{{ '%.1f'|format(place.avgRating) }}</strong></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Reviews</h3>
+    {% if reviews %}
+      <div class="reviews-list">
+        {% for r in reviews %}
+          <div class="review-card">
+            <div class="review-top">
+              <div class="review-user">{{ r.user }}</div>
+              <div class="review-rating">
+                {% for _ in range(r.rating) %}★{% endfor %}
+                {% for _ in range(5 - r.rating) %}☆{% endfor %}
+              </div>
+            </div>
+            {% if r.text %}
+              <div class="review-text">{{ r.text }}</div>
+            {% endif %}
+            {% if current_user and (current_user.id == r.userId or current_user.role == 'admin') %}
+              <div class="review-actions">
+                <form method="post" action="/reviews/{{ r.id }}/delete">
+                  <button type="submit" class="btn btn-danger btn-small">Delete</button>
+                </form>
+                {% if current_user.id == r.userId %}
+                <form method="post" action="/reviews/{{ r.id }}/edit" class="review-edit-inline">
+                  <input name="rating" value="{{ r.rating }}" size="1">
+                  <input name="text" value="{{ r.text }}">
+                  <button type="submit" class="btn btn-small">Save</button>
+                </form>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted empty-state">No reviews yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel review-form">
+    <h3>Post a review</h3>
+    {% if not current_user %}
+      <p><a href="/login">Login</a> to post a review.</p>
+    {% else %}
+      <form method="post" action="/places/{{ place.id }}">
+        <label>Rating
+          <select name="rating">
+            <option>5</option>
+            <option>4</option>
+            <option>3</option>
+            <option>2</option>
+            <option>1</option>
+          </select>
+        </label>
+        <label>Text
+          <textarea name="text" rows="3" placeholder="Share your thoughts..."></textarea>
+        </label>
+        <button type="submit" class="btn">Submit Review</button>
+      </form>
+    {% endif %}
+  </div>
+
+{% endblock %}

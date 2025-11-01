@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+  <section class="dashboard-section">
+    <h2>Admin Dashboard</h2>
+    {% if error %}
+      <p style="color:red;">{{ error }}</p>
+    {% else %}
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Active users (last 24h)</div>
+          <div class="stat-value">{{ activeUsersToday if activeUsersToday is not none else 'N/A' }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Star-only reviews</div>
+          <div class="stat-value">
+            {% if starOnlyRatio is not none %}
+              {{ '%.1f'|format(starOnlyRatio) }}%
+            {% else %}
+              N/A
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Reviews per day</h3>
+        <img src="/chart/reviews.png" alt="Reviews per day chart" style="max-width:100%" />
+        {# Removed verbose date dump list to keep the UI clean; chart is sufficient #}
+      </div>
+
+      <div class="panel">
+        <h3>Average rating per place</h3>
+        {% if averageRatingPerPlace %}
+          <table>
+            <thead>
+              <tr><th>Place</th><th>Avg Rating</th><th>Reviews</th></tr>
+            </thead>
+            <tbody>
+              {% for p in averageRatingPerPlace %}
+                <tr>
+                  <td>{{ p.name }}</td>
+                  <td>{{ '%.2f'|format(p.avgRating) }}</td>
+                  <td>{{ p.count }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted">No ratings yet.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}
