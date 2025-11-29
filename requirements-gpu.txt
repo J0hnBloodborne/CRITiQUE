@@ -1,4 +1,0 @@
---extra-index-url https://pypi.nvidia.com
-cudf-cu12>=24.10.0
-cuml-cu12>=24.10.0
-cugraph-cu12>=24.10.0
