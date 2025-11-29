@@ -1,89 +1,190 @@
 {% extends 'base.html' %}
+
 {% block content %}
-  <div class="place-header panel">
-    <div class="place-title-row">
-      <h2 class="place-title">{{ place.name }}</h2>
-      {% if current_user and current_user.role == 'admin' %}
-        <form method="post" action="/places/{{ place.id }}/delete">
-          <button type="submit" class="btn btn-danger">Delete Place</button>
-        </form>
-      {% endif %}
-    </div>
-    <div class="place-meta">
-      <span class="muted">Added by {{ place.creatorName or 'Unknown' }}</span>
-      <span class="divider">•</span>
-      <span class="muted">{{ place.type }}{% if place.address %} — {{ place.address }}{% endif %}</span>
-    </div>
-    {% if place.description %}
-      <div class="place-description">{{ place.description }}</div>
-    {% endif %}
-    <div class="place-tags">
-      {% for t in place.tags %}<span class="tag">{{ t }}</span>{% endfor %}
-    </div>
-    <div class="place-stats">
-      <div class="stat-pill">⭐ Average rating: <strong>{{ '%.1f'|format(place.avgRating) }}</strong></div>
+<div class="bg-stone-50 min-h-screen pb-20">
+  
+  <div class="relative h-96 bg-stone-900 overflow-hidden">
+    <img 
+      src="{{ place.photo if place.photo else 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop' }}" 
+      class="w-full h-full object-cover opacity-60"
+      alt="{{ place.name }}"
+    >
+    <div class="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent"></div>
+    
+    <div class="absolute bottom-0 left-0 w-full p-8 md:p-12">
+      <div class="max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <span class="bg-primary text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+                {{ place.type }}
+              </span>
+              {% if current_user and current_user.role == 'admin' %}
+                <form method="post" action="{{ url_for('delete_place', place_id=place.id) }}" onsubmit="return confirm('Nuke this place?');">
+                  <button type="submit" class="text-red-400 hover:text-red-300 text-xs font-bold uppercase underline decoration-dotted">
+                    Delete Place
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+            <h1 class="font-serif text-5xl md:text-7xl font-bold text-white mb-2 shadow-sm">{{ place.name }}</h1>
+            <p class="text-stone-300 text-lg flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+              {{ place.address or 'Address unknown' }}
+            </p>
+          </div>
+          
+          <div class="flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-4 rounded-xl border border-white/20">
+            <div class="text-center">
+              <div class="text-4xl font-bold text-yellow-400">{{ '%.1f'|format(place.avgRating) }}</div>
+              <div class="text-xs text-stone-300 uppercase tracking-wide">Average</div>
+            </div>
+            <div class="h-10 w-px bg-white/20"></div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white">{{ reviews|length }}</div>
+              <div class="text-xs text-stone-300 uppercase tracking-wide">Reviews</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="panel">
-    <h3>Reviews</h3>
-    {% if reviews %}
-      <div class="reviews-list">
-        {% for r in reviews %}
-          <div class="review-card">
-            <div class="review-top">
-              <div class="review-user">{{ r.user }}</div>
-              <div class="review-rating">
-                {% for _ in range(r.rating) %}★{% endfor %}
-                {% for _ in range(5 - r.rating) %}☆{% endfor %}
-              </div>
-            </div>
-            {% if r.text %}
-              <div class="review-text">{{ r.text }}</div>
+  <div class="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
+    
+    <div class="lg:col-span-2 space-y-12">
+      
+      <section>
+        <p class="text-xl text-stone-600 leading-relaxed font-light">
+          {{ place.description or 'No description provided yet. Be the first to tell us about the vibe!' }}
+        </p>
+        <div class="mt-6 flex flex-wrap gap-2">
+          {% for t in place.tags %}
+            {% if t %}
+            <a href="/?tag={{ t.strip() }}" class="px-3 py-1 bg-stone-200 text-stone-600 rounded-lg text-sm font-bold hover:bg-stone-300 transition-colors">
+              #{{ t.strip() }}
+            </a>
             {% endif %}
-            {% if current_user and (current_user.id == r.userId or current_user.role == 'admin') %}
-              <div class="review-actions">
-                <form method="post" action="/reviews/{{ r.id }}/delete">
-                  <button type="submit" class="btn btn-danger btn-small">Delete</button>
-                </form>
-                {% if current_user.id == r.userId %}
-                <form method="post" action="/reviews/{{ r.id }}/edit" class="review-edit-inline">
-                  <input name="rating" value="{{ r.rating }}" size="1">
-                  <input name="text" value="{{ r.text }}">
-                  <button type="submit" class="btn btn-small">Save</button>
-                </form>
+          {% endfor %}
+        </div>
+        <div class="mt-4 text-xs text-stone-400">
+          Added by {{ place.creatorName or 'Unknown' }}
+        </div>
+      </section>
+
+      <section>
+        <h3 class="font-serif text-2xl font-bold text-stone-900 mb-8 flex items-center gap-3">
+          Community Verdict
+          <span class="text-sm font-sans font-normal text-stone-400 bg-stone-100 px-2 py-1 rounded-full">{{ reviews|length }}</span>
+        </h3>
+
+        {% if reviews %}
+          <div class="space-y-6">
+            {% for r in reviews %}
+              <div class="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start mb-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-white font-bold text-sm">
+                      {{ r.user[:2].upper() }}
+                    </div>
+                    <div>
+                      <div class="font-bold text-stone-900">{{ r.user }}</div>
+                      <div class="text-xs text-stone-400">{{ r.createdAt|int|abs }}</div> </div>
+                  </div>
+                  <div class="flex text-yellow-400 text-sm">
+                    {% for _ in range(r.rating) %}★{% endfor %}
+                    {% for _ in range(5 - r.rating) %}
+                      <span class="text-stone-200">★</span>
+                    {% endfor %}
+                  </div>
+                </div>
+                
+                {% if r.text %}
+                  <p class="text-stone-700 leading-relaxed">{{ r.text }}</p>
+                {% endif %}
+
+                {% if current_user and (current_user.id == r.userId or current_user.role == 'admin') %}
+                  <div class="mt-4 pt-4 border-t border-stone-100 flex justify-end">
+                    <form method="post" action="{{ url_for('delete_review', review_id=r.id) }}">
+                      <button type="submit" class="text-red-500 text-xs font-bold hover:underline">Delete Review</button>
+                    </form>
+                  </div>
                 {% endif %}
               </div>
-            {% endif %}
+            {% endfor %}
           </div>
-        {% endfor %}
+        {% else %}
+          <div class="bg-stone-100 rounded-xl p-8 text-center">
+            <p class="text-stone-500 italic">No reviews yet. Be the first to taste testing!</p>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <div class="space-y-8">
+      
+      <div class="bg-white p-6 rounded-2xl shadow-lg border-t-4 border-primary sticky top-24">
+        <h3 class="font-serif text-xl font-bold text-stone-900 mb-4">Leave a Review</h3>
+        
+        {% if not current_user %}
+          <p class="text-stone-500 text-sm mb-4">You must be logged in to drop a critique.</p>
+          <a href="{{ url_for('login_view') }}" class="block w-full text-center bg-stone-900 text-white py-3 rounded-xl font-bold hover:bg-primary transition-colors">
+            Login Now
+          </a>
+        {% else %}
+          <form method="post" action="{{ url_for('place_post_review', place_id=place.id) }}">
+            <div class="mb-4">
+              <label class="block text-xs font-bold uppercase text-stone-500 mb-1">Rating</label>
+              <div class="flex gap-2">
+                {% for i in range(5, 0, -1) %}
+                  <label class="cursor-pointer">
+                    <input type="radio" name="rating" value="{{ i }}" class="peer sr-only" required>
+                    <span class="text-2xl text-stone-200 peer-checked:text-yellow-400 hover:text-yellow-300 transition-colors">★</span>
+                  </label>
+                {% endfor %}
+                <span class="text-xs text-stone-400 self-center ml-auto">(Select one)</span>
+              </div>
+            </div>
+            
+            <div class="mb-4">
+              <label class="block text-xs font-bold uppercase text-stone-500 mb-1">Your Thoughts</label>
+              <textarea name="text" rows="4" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all" placeholder="Was it spicy? Was it cold? Spill the tea."></textarea>
+            </div>
+            
+            <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white font-bold py-3 rounded-xl shadow-md transition-transform active:scale-95">
+              Post Review
+            </button>
+          </form>
+        {% endif %}
       </div>
-    {% else %}
-      <p class="muted empty-state">No reviews yet.</p>
-    {% endif %}
-  </div>
 
-  <div class="panel review-form">
-    <h3>Post a review</h3>
-    {% if not current_user %}
-      <p><a href="/login">Login</a> to post a review.</p>
-    {% else %}
-      <form method="post" action="/places/{{ place.id }}">
-        <label>Rating
-          <select name="rating">
-            <option>5</option>
-            <option>4</option>
-            <option>3</option>
-            <option>2</option>
-            <option>1</option>
-          </select>
-        </label>
-        <label>Text
-          <textarea name="text" rows="3" placeholder="Share your thoughts..."></textarea>
-        </label>
-        <button type="submit" class="btn">Submit Review</button>
-      </form>
-    {% endif %}
+      {% if recommendations %}
+        <div class="pt-8 border-t border-stone-200">
+          <h3 class="font-serif text-lg font-bold text-stone-900 mb-4">You Might Also Like</h3>
+          <div class="space-y-4">
+            {% for rec in recommendations %}
+              <a href="{{ url_for('place_view', place_id=rec.id) }}" class="flex gap-4 group items-center">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-stone-200 flex-shrink-0">
+                  <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=200&auto=format&fit=crop" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
+                </div>
+                <div>
+                  <h4 class="font-bold text-stone-800 text-sm group-hover:text-primary transition-colors leading-tight">
+                    {{ rec.name }}
+                  </h4>
+                  <div class="text-xs text-stone-500 mt-1">{{ rec.type }}</div>
+                  <div class="flex gap-1 mt-1">
+                     {% for t in rec.tags[:2] %}
+                       <span class="text-[10px] bg-stone-100 text-stone-500 px-1 rounded">{{ t }}</span>
+                     {% endfor %}
+                  </div>
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+      
+    </div>
   </div>
-
+</div>
 {% endblock %}
