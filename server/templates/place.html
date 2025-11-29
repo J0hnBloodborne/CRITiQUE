@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="bg-stone-50 min-h-screen pb-20">
+<div class="bg-stone-50 dark:bg-stone-950 min-h-screen pb-20 transition-colors duration-300">
   
-  <div class="relative h-96 bg-stone-900 overflow-hidden">
+  <div class="relative h-[500px] bg-stone-900 overflow-hidden">
     <img 
       src="{{ place.photo if place.photo else 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop' }}" 
       class="w-full h-full object-cover opacity-60"
@@ -11,38 +11,38 @@
     >
     <div class="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent"></div>
     
-    <div class="absolute bottom-0 left-0 w-full p-8 md:p-12">
+    <div class="absolute bottom-0 left-0 w-full p-8 md:p-16">
       <div class="max-w-6xl mx-auto">
-        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div>
-            <div class="flex items-center gap-3 mb-2">
-              <span class="bg-primary text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="bg-primary text-white px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-widest shadow-lg">
                 {{ place.type }}
               </span>
               {% if current_user and current_user.role == 'admin' %}
                 <form method="post" action="{{ url_for('delete_place', place_id=place.id) }}" onsubmit="return confirm('Nuke this place?');">
-                  <button type="submit" class="text-red-400 hover:text-red-300 text-xs font-bold uppercase underline decoration-dotted">
+                  <button type="submit" class="text-red-400 hover:text-red-300 text-sm font-bold uppercase underline decoration-dotted">
                     Delete Place
                   </button>
                 </form>
               {% endif %}
             </div>
-            <h1 class="font-serif text-5xl md:text-7xl font-bold text-white mb-2 shadow-sm">{{ place.name }}</h1>
-            <p class="text-stone-300 text-lg flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <h1 class="font-serif text-6xl md:text-8xl font-bold text-white mb-4 shadow-sm leading-none">{{ place.name }}</h1>
+            <p class="text-stone-300 text-xl md:text-2xl flex items-center gap-2 font-light">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               {{ place.address or 'Address unknown' }}
             </p>
           </div>
           
-          <div class="flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-4 rounded-xl border border-white/20">
+          <div class="flex items-center gap-6 bg-white/10 backdrop-blur-md px-8 py-6 rounded-2xl border border-white/20">
             <div class="text-center">
-              <div class="text-4xl font-bold text-yellow-400">{{ '%.1f'|format(place.avgRating) }}</div>
-              <div class="text-xs text-stone-300 uppercase tracking-wide">Average</div>
+              <div class="text-5xl font-bold text-yellow-400">{{ '%.1f'|format(place.avgRating) }}</div>
+              <div class="text-sm text-stone-300 uppercase tracking-wide font-bold">Average</div>
             </div>
-            <div class="h-10 w-px bg-white/20"></div>
+            <div class="h-12 w-px bg-white/20"></div>
             <div class="text-center">
-              <div class="text-2xl font-bold text-white">{{ reviews|length }}</div>
-              <div class="text-xs text-stone-300 uppercase tracking-wide">Reviews</div>
+              <div class="text-3xl font-bold text-white">{{ reviews|length }}</div>
+              <div class="text-sm text-stone-300 uppercase tracking-wide font-bold">Reviews</div>
             </div>
           </div>
         </div>
@@ -50,63 +50,61 @@
     </div>
   </div>
 
-  <div class="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
+  <div class="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-3 gap-16">
     
-    <div class="lg:col-span-2 space-y-12">
+    <div class="lg:col-span-2 space-y-16">
       
       <section>
-        <p class="text-xl text-stone-600 leading-relaxed font-light">
-          {{ place.description or 'No description provided yet. Be the first to tell us about the vibe!' }}
+        <p class="text-2xl text-stone-600 dark:text-stone-300 leading-relaxed font-light">
+          {{ place.description or 'No description provided yet.' }}
         </p>
-        <div class="mt-6 flex flex-wrap gap-2">
+        <div class="mt-8 flex flex-wrap gap-3">
           {% for t in place.tags %}
             {% if t %}
-            <a href="/?tag={{ t.strip() }}" class="px-3 py-1 bg-stone-200 text-stone-600 rounded-lg text-sm font-bold hover:bg-stone-300 transition-colors">
+            <a href="/?tag={{ t.strip() }}" class="px-4 py-2 bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-200 rounded-xl text-sm font-bold hover:bg-stone-300 dark:hover:bg-stone-700 transition-colors">
               #{{ t.strip() }}
             </a>
             {% endif %}
           {% endfor %}
         </div>
-        <div class="mt-4 text-xs text-stone-400">
-          Added by {{ place.creatorName or 'Unknown' }}
-        </div>
       </section>
 
       <section>
-        <h3 class="font-serif text-2xl font-bold text-stone-900 mb-8 flex items-center gap-3">
+        <h3 class="font-serif text-3xl font-bold text-stone-900 dark:text-white mb-10 flex items-center gap-4">
           Community Verdict
-          <span class="text-sm font-sans font-normal text-stone-400 bg-stone-100 px-2 py-1 rounded-full">{{ reviews|length }}</span>
+          <span class="text-lg font-sans font-normal text-stone-400 bg-stone-100 dark:bg-stone-800 px-3 py-1 rounded-full">{{ reviews|length }}</span>
         </h3>
 
         {% if reviews %}
-          <div class="space-y-6">
+          <div class="space-y-8">
             {% for r in reviews %}
-              <div class="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
-                <div class="flex justify-between items-start mb-4">
-                  <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-white font-bold text-sm">
+              <div class="bg-white dark:bg-stone-900 p-8 rounded-3xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all">
+                <div class="flex justify-between items-start mb-6">
+                  <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-white font-bold text-lg shadow-md">
                       {{ r.user[:2].upper() }}
                     </div>
                     <div>
-                      <div class="font-bold text-stone-900">{{ r.user }}</div>
-                      <div class="text-xs text-stone-400">{{ r.createdAt|int|abs }}</div> </div>
+                      <div class="font-bold text-stone-900 dark:text-white text-lg">{{ r.user }}</div>
+                      <div class="text-sm text-stone-400 dark:text-stone-500 font-bold uppercase tracking-wider">{{ r.createdAt|time_ago }}</div>
+                    </div>
                   </div>
-                  <div class="flex text-yellow-400 text-sm">
+                  <div class="flex text-yellow-400 text-lg">
                     {% for _ in range(r.rating) %}★{% endfor %}
                     {% for _ in range(5 - r.rating) %}
-                      <span class="text-stone-200">★</span>
+                      <span class="text-stone-200 dark:text-stone-700">★</span>
                     {% endfor %}
                   </div>
                 </div>
                 
                 {% if r.text %}
-                  <p class="text-stone-700 leading-relaxed">{{ r.text }}</p>
+                  <p class="text-stone-700 dark:text-stone-300 text-lg leading-relaxed">{{ r.text }}</p>
                 {% endif %}
 
                 {% if current_user and (current_user.id == r.userId or current_user.role == 'admin') %}
-                  <div class="mt-4 pt-4 border-t border-stone-100 flex justify-end">
+                  <div class="mt-6 pt-6 border-t border-stone-100 dark:border-stone-800 flex justify-end">
                     <form method="post" action="{{ url_for('delete_review', review_id=r.id) }}">
-                      <button type="submit" class="text-red-500 text-xs font-bold hover:underline">Delete Review</button>
+                      <button type="submit" class="text-red-500 text-sm font-bold hover:text-red-400 transition-colors">Delete Review</button>
                     </form>
                   </div>
                 {% endif %}
@@ -114,44 +112,45 @@
             {% endfor %}
           </div>
         {% else %}
-          <div class="bg-stone-100 rounded-xl p-8 text-center">
-            <p class="text-stone-500 italic">No reviews yet. Be the first to taste testing!</p>
+          <div class="bg-stone-100 dark:bg-stone-900 rounded-2xl p-12 text-center border-2 border-dashed border-stone-200 dark:border-stone-800">
+            <p class="text-stone-500 dark:text-stone-400 text-xl italic">No reviews yet. Be the first!</p>
           </div>
         {% endif %}
       </section>
     </div>
 
-    <div class="space-y-8">
+    <div class="space-y-10">
       
-      <div class="bg-white p-6 rounded-2xl shadow-lg border-t-4 border-primary sticky top-24">
-        <h3 class="font-serif text-xl font-bold text-stone-900 mb-4">Leave a Review</h3>
+      <div class="bg-white dark:bg-stone-900 p-8 rounded-3xl shadow-xl border-t-8 border-primary">
+        <h3 class="font-serif text-2xl font-bold text-stone-900 dark:text-white mb-6">Leave a Review</h3>
         
         {% if not current_user %}
-          <p class="text-stone-500 text-sm mb-4">You must be logged in to drop a critique.</p>
-          <a href="{{ url_for('login_view') }}" class="block w-full text-center bg-stone-900 text-white py-3 rounded-xl font-bold hover:bg-primary transition-colors">
+          <p class="text-stone-500 dark:text-stone-400 mb-6">You must be logged in to drop a critique.</p>
+          <a href="{{ url_for('login_view') }}" class="block w-full text-center bg-stone-900 dark:bg-white dark:text-stone-900 text-white py-4 rounded-xl font-bold hover:bg-primary hover:text-white transition-colors">
             Login Now
           </a>
         {% else %}
           <form method="post" action="{{ url_for('place_post_review', place_id=place.id) }}">
-            <div class="mb-4">
-              <label class="block text-xs font-bold uppercase text-stone-500 mb-1">Rating</label>
-              <div class="flex gap-2">
+            <div class="mb-6">
+              <label class="block text-xs font-bold uppercase text-stone-500 dark:text-stone-400 mb-2">Rating</label>
+              
+              <div class="flex flex-row-reverse justify-end gap-2 star-group">
                 {% for i in range(5, 0, -1) %}
-                  <label class="cursor-pointer">
-                    <input type="radio" name="rating" value="{{ i }}" class="peer sr-only" required>
-                    <span class="text-2xl text-stone-200 peer-checked:text-yellow-400 hover:text-yellow-300 transition-colors">★</span>
+                  <input type="radio" id="star{{i}}" name="rating" value="{{i}}" class="peer hidden" required />
+                  <label for="star{{i}}" class="star-label text-3xl text-stone-200 dark:text-stone-700 cursor-pointer transition-colors peer-checked:text-yellow-400 hover:text-yellow-400 peer-hover:text-yellow-400">
+                    ★
                   </label>
                 {% endfor %}
-                <span class="text-xs text-stone-400 self-center ml-auto">(Select one)</span>
               </div>
+              <div class="text-xs text-stone-400 mt-2">Click to rate</div>
             </div>
             
-            <div class="mb-4">
-              <label class="block text-xs font-bold uppercase text-stone-500 mb-1">Your Thoughts</label>
-              <textarea name="text" rows="4" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all" placeholder="Was it spicy? Was it cold? Spill the tea."></textarea>
+            <div class="mb-6">
+              <label class="block text-xs font-bold uppercase text-stone-500 dark:text-stone-400 mb-2">Your Thoughts</label>
+              <textarea name="text" rows="4" class="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-4 text-base focus:ring-2 focus:ring-primary focus:outline-none transition-all dark:text-white" placeholder="Spill the tea..."></textarea>
             </div>
             
-            <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white font-bold py-3 rounded-xl shadow-md transition-transform active:scale-95">
+            <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-lg">
               Post Review
             </button>
           </form>
@@ -159,22 +158,22 @@
       </div>
 
       {% if recommendations %}
-        <div class="pt-8 border-t border-stone-200">
-          <h3 class="font-serif text-lg font-bold text-stone-900 mb-4">You Might Also Like</h3>
-          <div class="space-y-4">
+        <div class="pt-10 border-t border-stone-200 dark:border-stone-800">
+          <h3 class="font-serif text-xl font-bold text-stone-900 dark:text-white mb-6">You Might Also Like</h3>
+          <div class="space-y-6">
             {% for rec in recommendations %}
-              <a href="{{ url_for('place_view', place_id=rec.id) }}" class="flex gap-4 group items-center">
-                <div class="w-16 h-16 rounded-lg overflow-hidden bg-stone-200 flex-shrink-0">
-                  <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=200&auto=format&fit=crop" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
+              <a href="{{ url_for('place_view', place_id=rec.id) }}" class="flex gap-4 group items-center p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+                <div class="w-20 h-20 rounded-xl overflow-hidden bg-stone-200 flex-shrink-0 relative">
+                  <img src="{{ rec.photo if rec.photo else 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=200&auto=format&fit=crop' }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
                 </div>
                 <div>
-                  <h4 class="font-bold text-stone-800 text-sm group-hover:text-primary transition-colors leading-tight">
+                  <h4 class="font-bold text-stone-900 dark:text-white text-lg group-hover:text-primary transition-colors leading-tight">
                     {{ rec.name }}
                   </h4>
-                  <div class="text-xs text-stone-500 mt-1">{{ rec.type }}</div>
-                  <div class="flex gap-1 mt-1">
+                  <div class="text-sm text-stone-500 dark:text-stone-400 mt-1">{{ rec.type }}</div>
+                  <div class="flex gap-1 mt-2">
                      {% for t in rec.tags[:2] %}
-                       <span class="text-[10px] bg-stone-100 text-stone-500 px-1 rounded">{{ t }}</span>
+                       <span class="text-[10px] uppercase font-bold bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-200 px-2 py-0.5 rounded">{{ t }}</span>
                      {% endfor %}
                   </div>
                 </div>
@@ -183,7 +182,6 @@
           </div>
         </div>
       {% endif %}
-      
     </div>
   </div>
 </div>

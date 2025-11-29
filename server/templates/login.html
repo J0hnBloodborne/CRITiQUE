@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="min-h-[80vh] flex items-center justify-center py-12 px-6">
-  <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-stone-100">
+<div class="min-h-[80vh] flex items-center justify-center py-12 px-6 bg-stone-50 dark:bg-stone-950 transition-colors duration-300">
+  <div class="w-full max-w-md bg-white dark:bg-stone-900 rounded-3xl shadow-2xl overflow-hidden border border-stone-100 dark:border-stone-800">
     
-    <div class="bg-stone-900 px-8 py-8 text-center">
+    <div class="bg-stone-900 dark:bg-stone-950 px-8 py-8 text-center border-b border-stone-800">
       <h2 class="font-serif text-3xl font-bold text-white">Welcome Back</h2>
       <p class="text-stone-400 text-sm mt-2">Sign in to continue your critique</p>
     </div>
@@ -12,16 +12,16 @@
     <form method="post" action="/login" class="p-8 space-y-6">
       
       <div>
-        <label class="block text-xs font-bold uppercase text-stone-500 mb-1 ml-1">Email Address</label>
+        <label class="block text-xs font-bold uppercase text-stone-500 dark:text-stone-400 mb-1 ml-1">Email Address</label>
         <input name="email" type="email" required 
-          class="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+          class="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none transition-all dark:text-white"
           placeholder="e.g. foodcritic@campus.edu">
       </div>
 
       <div>
-        <label class="block text-xs font-bold uppercase text-stone-500 mb-1 ml-1">Password</label>
+        <label class="block text-xs font-bold uppercase text-stone-500 dark:text-stone-400 mb-1 ml-1">Password</label>
         <input name="password" type="password" required 
-          class="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+          class="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none transition-all dark:text-white"
           placeholder="••••••••">
       </div>
 
@@ -29,7 +29,7 @@
         Login
       </button>
 
-      <div class="text-center text-sm text-stone-500">
+      <div class="text-center text-sm text-stone-500 dark:text-stone-400">
         New around here? <a href="{{ url_for('register_view') }}" class="text-primary font-bold hover:underline">Create Account</a>
       </div>
     </form>
