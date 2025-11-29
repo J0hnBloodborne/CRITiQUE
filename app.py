@@ -1,484 +1,361 @@
 import os
-from datetime import datetime, timedelta
-from flask import Flask, request, redirect, url_for, render_template, flash, session, send_file
-from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.sql import func
-from sqlalchemy import text
-from uuid import uuid4
 import io
+from datetime import datetime, timedelta
+from uuid import uuid4
+from typing import List, Optional
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-# --- Path resolution to support running app.py outside the server folder ---
-BASE_DIR = os.path.dirname(__file__)  # e.g., d:\Code\Critique
-REPO_DIR = os.path.abspath(os.path.join(BASE_DIR, '..'))  # e.g., d:\Code
+# FastAPI & Starlette Imports
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
-def resolve_templates_dir():
-	# Candidates in priority order
-	candidates = []
-	env_tpl = os.environ.get('CRITIQUE_TEMPLATES_DIR')
-	if env_tpl:
-		candidates.append(env_tpl)
-	# Local typical locations
-	candidates.append(os.path.join(BASE_DIR, 'templates'))
-	candidates.append(os.path.join(BASE_DIR, 'server', 'templates'))
-	# Repo fallbacks (both legacy and new names)
-	candidates.append(os.path.join(REPO_DIR, 'Critique', 'server', 'templates'))
-	candidates.append(os.path.join(REPO_DIR, 'CampusEats', 'server', 'templates'))
-	# Pick the first that exists and contains home.html (strong signal)
-	for c in candidates:
-		if os.path.isdir(c) and os.path.isfile(os.path.join(c, 'home.html')):
-			return c
-	# Fallback to the first existing directory, even if file not found
-	for c in candidates:
-		if os.path.isdir(c):
-			return c
-	# Last resort: local path
-	return os.path.join(BASE_DIR, 'templates')
+# SQLAlchemy Imports
+from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, func
+from sqlalchemy.orm import sessionmaker, relationship, Session, declarative_base
 
-def resolve_static_dir():
-	candidates = []
-	env_static = os.environ.get('CRITIQUE_STATIC_DIR')
-	if env_static:
-		candidates.append(env_static)
-	# Local typical locations
-	candidates.append(os.path.join(BASE_DIR, 'static'))
-	candidates.append(os.path.join(BASE_DIR, 'server', 'static'))
-	# Repo fallbacks (both legacy and new names)
-	candidates.append(os.path.join(REPO_DIR, 'Critique', 'server', 'static'))
-	candidates.append(os.path.join(REPO_DIR, 'CampusEats', 'server', 'static'))
-	# Prefer one that contains styles.css
-	for c in candidates:
-		if os.path.isdir(c) and os.path.isfile(os.path.join(c, 'styles.css')):
-			return c
-	for c in candidates:
-		if os.path.isdir(c):
-			return c
-	return os.path.join(BASE_DIR, 'static')
+# --- 1. CONFIGURATION & DATABASE SETUP ---
 
-TEMPLATES_DIR = resolve_templates_dir()
-STATIC_DIR = resolve_static_dir()
+SECRET_KEY = os.environ.get('CRITIQUE_SECRET', 'dev-secret')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def resolve_db_path():
-	# 1) Environment override
-	env_db = os.environ.get('CRITIQUE_DB_PATH')
-	if env_db:
-		return env_db
-	# 2) Prefer an existing DB from common locations (both names)
-	candidates = [
-		os.path.join(BASE_DIR, 'critique.db'),
-		os.path.join(BASE_DIR, 'campuseats.db'),
-		os.path.join(BASE_DIR, 'server', 'critique.db'),
-		os.path.join(BASE_DIR, 'server', 'campuseats.db'),
-		os.path.join(REPO_DIR, 'Critique', 'server', 'critique.db'),
-		os.path.join(REPO_DIR, 'Critique', 'server', 'campuseats.db'),
-		os.path.join(REPO_DIR, 'CampusEats', 'server', 'critique.db'),
-		os.path.join(REPO_DIR, 'CampusEats', 'server', 'campuseats.db'),
-	]
-	for c in candidates:
-		if os.path.exists(c):
-			return c
-	# 3) Default to a new name aligned with the project rename
-	return os.path.join(BASE_DIR, 'critique.db')
+# Database Setup
+DB_PATH = os.path.join(BASE_DIR, 'campuseats.db') 
+SQLALCHEMY_DATABASE_URI = f"sqlite:///{DB_PATH}"
 
-DB_PATH = resolve_db_path()
+engine = create_engine(SQLALCHEMY_DATABASE_URI, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-app = Flask(__name__, template_folder=TEMPLATES_DIR, static_folder=STATIC_DIR)
-app.secret_key = os.environ.get('CRITIQUE_SECRET') or os.environ.get('CAMPUS_EATS_SECRET', 'dev-secret')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-CORS(app)
-db = SQLAlchemy(app)
+app = FastAPI(title="CRITiQUE", docs_url="/docs", redoc_url=None)
 
+STATIC_DIR = os.path.join(BASE_DIR, 'server', 'static')
+TEMPLATES_DIR = os.path.join(BASE_DIR, 'server', 'templates')
+
+if not os.path.exists(STATIC_DIR):
+    os.makedirs(STATIC_DIR)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+
+# ⚡ CUSTOM DATE FILTER
+def format_time_ago(value):
+    if not value: return ""
+    # Value is ms timestamp
+    dt = datetime.fromtimestamp(int(value) / 1000)
+    now = datetime.now()
+    diff = now - dt
+    
+    if diff.days == 0:
+        if diff.seconds < 60:
+            return "Just now"
+        if diff.seconds < 3600:
+            return f"{diff.seconds // 60}m ago"
+        return f"{diff.seconds // 3600}h ago"
+    if diff.days < 7:
+        return f"{diff.days}d ago"
+    return dt.strftime("%b %d, %Y")
+
+templates.env.filters["time_ago"] = format_time_ago
+
+
+# --- 2. DATABASE MODELS ---
 
 def now_ts():
-	return int(datetime.utcnow().timestamp() * 1000)
+    return int(datetime.utcnow().timestamp() * 1000)
 
+class User(Base):
+    __tablename__ = "user"
+    id = Column(String, primary_key=True)
+    email = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    role = Column(String(10), nullable=False, default='student')
+    university = Column(String, nullable=True)
+    password = Column(String, nullable=True)
+    total_reviews = Column(Integer, default=0)
 
-# Shared constants
-PLACE_TYPES = [
-	'Cafeteria',
-	'Cafe',
-	'Restaurant',
-	'Food Truck',
-	'Bakery',
-	'Fast Food',
-	'Desserts',
-	'Beverages',
-	'Other'
-]
+class Place(Base):
+    __tablename__ = "place"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    photo = Column(String, nullable=True)
+    tags = Column(String, nullable=True)
+    creator_id = Column(String, ForeignKey('user.id'), nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(Integer, default=now_ts)
 
+class Review(Base):
+    __tablename__ = "review"
+    id = Column(Integer, primary_key=True, index=True)
+    place_id = Column(Integer, ForeignKey('place.id'), nullable=False)
+    user_id = Column(String, ForeignKey('user.id'), nullable=False)
+    rating = Column(Integer, nullable=False)
+    text = Column(Text, nullable=True)
+    created_at = Column(Integer, default=now_ts)
 
-def compute_reviews_per_day(n_days: int = 14):
+Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# --- 3. HELPER FUNCTIONS ---
+
+PLACE_TYPES = ['Cafeteria', 'Cafe', 'Restaurant', 'Food Truck', 'Bakery', 'Fast Food', 'Desserts', 'Beverages', 'Other']
+
+def flash(request: Request, message: str):
+    if '_messages' not in request.session:
+        request.session['_messages'] = []
+    request.session['_messages'].append(message)
+
+def get_flashed_messages(request: Request):
+    return request.session.pop('_messages', [])
+
+def get_common_context(request: Request, db: Session):
+    uid = request.session.get('user_id')
+    user = db.query(User).filter(User.id == uid).first() if uid else None
+    
+    def jinja_url_for(name: str, **kwargs):
+        if name == 'static' and 'filename' in kwargs:
+            kwargs['path'] = kwargs.pop('filename')
+        return request.url_for(name, **kwargs)
+
+    return {
+        "request": request,
+        "current_user": user,
+        "place_types": PLACE_TYPES,
+        "get_flashed_messages": lambda: get_flashed_messages(request),
+        "url_for": jinja_url_for
+    }
+
+def serialize_place(place, db: Session):
+    avg = db.query(func.avg(Review.rating)).filter(Review.place_id == place.id).scalar() or 0
+    creator_name = None
+    if place.creator_id:
+        cu = db.query(User).filter(User.id == place.creator_id).first()
+        creator_name = cu.name if cu else None
+        
+    return {
+        'id': place.id,
+        'name': place.name,
+        'type': place.type,
+        'address': place.address,
+        'photo': place.photo,
+        'tags': place.tags.split(',') if place.tags else [],
+        'createdAt': place.created_at,
+        'avgRating': float(avg),
+        'creatorId': place.creator_id,
+        'creatorName': creator_name,
+        'description': place.description
+    }
+
+# --- 4. ROUTES ---
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request, q: str = "", tag: str = "", db: Session = Depends(get_db)):
+    places = db.query(Place).all()
+    results = [p for p in places if q.lower() in p.name.lower() and (not tag or (p.tags and tag in p.tags.split(',')))]
+    serialized = [serialize_place(p, db) for p in results]
+    
+    place_counts = []
+    for p in places:
+        count = db.query(Review).filter(Review.place_id == p.id).count()
+        place_counts.append((p, count))
+    place_counts.sort(key=lambda x: x[1], reverse=True)
+    trending = [serialize_place(p[0], db) for p in place_counts[:3]]
+    
+    context = get_common_context(request, db)
+    context.update({"places": serialized, "trending": trending, "q": q, "tag": tag})
+    return templates.TemplateResponse("home.html", context)
+
+@app.get("/register", response_class=HTMLResponse)
+def register_view(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse("register.html", get_common_context(request, db))
+
+@app.post("/register")
+async def register_post(request: Request, email: str = Form(...), name: str = Form(...), university: str = Form(""), password: str = Form(...), admin_code: str = Form(""), db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == email).first():
+        flash(request, "Email already exists")
+        return RedirectResponse(request.url_for("register_view"), status_code=303)
+    role = 'student'
+    valid_codes = [os.environ.get('CRITIQUE_ADMIN_CODE'), 'campuseatsadmin2025']
+    if admin_code in [c for c in valid_codes if c]:
+        role = 'admin'
+    user = User(id=str(uuid4()), email=email, name=name, university=university, password=password, role=role)
+    db.add(user)
+    db.commit()
+    request.session['user_id'] = user.id
+    return RedirectResponse(request.url_for("home"), status_code=303)
+
+@app.get("/login", response_class=HTMLResponse)
+def login_view(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse("login.html", get_common_context(request, db))
+
+@app.post("/login")
+async def login_post(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        flash(request, "Account not found")
+        return RedirectResponse(request.url_for("login_view"), status_code=303)
+    if user.password != password:
+        flash(request, "Invalid credentials")
+        return RedirectResponse(request.url_for("login_view"), status_code=303)
+    request.session['user_id'] = user.id
+    return RedirectResponse(request.url_for("home"), status_code=303)
+
+@app.get("/logout")
+def logout_view(request: Request):
+    request.session.pop('user_id', None)
+    return RedirectResponse(request.url_for("home"), status_code=303)
+
+@app.get("/places/new", response_class=HTMLResponse)
+def new_place_view(request: Request, db: Session = Depends(get_db)):
+    user_id = request.session.get('user_id')
+    if not user_id:
+        flash(request, "Please login to add a place")
+        return RedirectResponse(request.url_for("login_view"), status_code=303)
+    return templates.TemplateResponse("add_place.html", get_common_context(request, db))
+
+@app.post("/places/new")
+async def new_place_post(request: Request, name: str = Form(...), type: str = Form(""), address: str = Form(""), tags: str = Form(""), photo: str = Form(""), description: str = Form(""), db: Session = Depends(get_db)):
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return RedirectResponse(request.url_for("login_view"), status_code=303)
+    p = Place(name=name, type=type, address=address, tags=tags, photo=photo, description=description, creator_id=user_id)
+    db.add(p)
+    db.commit()
+    return RedirectResponse(request.url_for("home"), status_code=303)
+
+@app.get("/places/{place_id}", response_class=HTMLResponse)
+def place_view(request: Request, place_id: int, db: Session = Depends(get_db)):
+    p = db.query(Place).filter(Place.id == place_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Place not found")
+    reviews = db.query(Review).filter(Review.place_id == place_id).order_by(Review.created_at.desc()).all()
+    reviews_ser = [{'id': r.id, 'user': (db.query(User).filter(User.id == r.user_id).first().name if db.query(User).filter(User.id == r.user_id).first() else r.user_id), 'rating': r.rating, 'text': r.text, 'createdAt': r.created_at, 'userId': r.user_id} for r in reviews]
+    
+    recommendations = []
+    try:
+        from recommender import ContentRecommender
+        all_places = db.query(Place).all()
+        places_data = [{'id': pl.id, 'name': pl.name, 'type': pl.type, 'tags': pl.tags, 'description': pl.description} for pl in all_places]
+        engine = ContentRecommender(places_data)
+        rec_ids = engine.recommend(place_id)
+        recommendations = [serialize_place(db.query(Place).get(rid), db) for rid in rec_ids]
+    except Exception as e:
+        print(f"Recommender error: {e}")
+
+    context = get_common_context(request, db)
+    context.update({"place": serialize_place(p, db), "reviews": reviews_ser, "recommendations": recommendations})
+    return templates.TemplateResponse("place.html", context)
+
+@app.post("/places/{place_id}")
+async def place_post_review(request: Request, place_id: int, rating: int = Form(5), text: str = Form(""), db: Session = Depends(get_db)):
+    user_id = request.session.get('user_id')
+    if not user_id:
+        flash(request, "Please login to review")
+        return RedirectResponse(request.url_for("login_view"), status_code=303)
+    r = Review(place_id=place_id, user_id=user_id, rating=rating, text=text)
+    db.add(r)
+    user = db.query(User).filter(User.id == user_id).first()
+    if user: user.total_reviews = (user.total_reviews or 0) + 1
+    db.commit()
+    return RedirectResponse(request.url_for("place_view", place_id=place_id), status_code=303)
+
+@app.post("/places/{place_id}/delete")
+async def delete_place(request: Request, place_id: int, db: Session = Depends(get_db)):
+    user_id = request.session.get('user_id')
+    user = db.query(User).filter(User.id == user_id).first() if user_id else None
+    if not user or user.role != 'admin':
+        flash(request, "Admins only")
+        return RedirectResponse(request.url_for("place_view", place_id=place_id), status_code=303)
+    place = db.query(Place).filter(Place.id == place_id).first()
+    if place:
+        db.query(Review).filter(Review.place_id == place_id).delete()
+        db.delete(place)
+        db.commit()
+        flash(request, "Place deleted")
+    return RedirectResponse(request.url_for("home"), status_code=303)
+
+@app.post("/reviews/{review_id}/delete")
+async def delete_review(request: Request, review_id: int, db: Session = Depends(get_db)):
+    r = db.query(Review).filter(Review.id == review_id).first()
+    if not r: return RedirectResponse(request.url_for("home"), status_code=303)
+    user_id = request.session.get('user_id')
+    user = db.query(User).filter(User.id == user_id).first() if user_id else None
+    if not user or (user.role != 'admin' and user.id != r.user_id):
+        flash(request, "Not authorized")
+        return RedirectResponse(request.url_for("place_view", place_id=r.place_id), status_code=303)
+    author = db.query(User).filter(User.id == r.user_id).first()
+    if author: author.total_reviews = max(0, (author.total_reviews or 0) - 1)
+    place_id = r.place_id
+    db.delete(r)
+    db.commit()
+    return RedirectResponse(request.url_for("place_view", place_id=place_id), status_code=303)
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request, db: Session = Depends(get_db)):
+    user_id = request.session.get('user_id')
+    user = db.query(User).filter(User.id == user_id).first() if user_id else None
+    if not user: return RedirectResponse(request.url_for("login_view"), status_code=303)
+    context = get_common_context(request, db)
+    if user.role != 'admin':
+        context.update({'error': 'Admins only.'})
+        return templates.TemplateResponse("dashboard.html", context)
+    
+    n_days = 14
     now = datetime.utcnow()
-    days = []
+    days_data = [{'date': (now - timedelta(days=i)).strftime('%Y-%m-%d'), 'count': db.query(Review).filter(Review.created_at >= int(datetime(year=(now - timedelta(days=i)).year, month=(now - timedelta(days=i)).month, day=(now - timedelta(days=i)).day).timestamp() * 1000), Review.created_at < int((datetime(year=(now - timedelta(days=i)).year, month=(now - timedelta(days=i)).month, day=(now - timedelta(days=i)).day) + timedelta(days=1)).timestamp() * 1000)).count()} for i in range(n_days - 1, -1, -1)]
+    
+    total = db.query(Review).count()
+    star_only = db.query(Review).filter((Review.text == None) | (Review.text == '')).count()
+    star_only_ratio = (star_only / total) * 100 if total else 0
+    
+    avg_rows = db.query(Place.id, Place.name, func.avg(Review.rating), func.count(Review.id)).join(Review, Review.place_id == Place.id).group_by(Place.id).order_by(func.count(Review.id).desc()).all()
+    average_rating_per_place = [{'placeId': r[0], 'name': r[1], 'avgRating': float(r[2] or 0), 'count': int(r[3] or 0)} for r in avg_rows]
+    
+    day24 = int((now - timedelta(days=1)).timestamp() * 1000)
+    recent_reviews = db.query(Review).filter(Review.created_at >= day24).all()
+    active_users_today = len(set([r.user_id for r in recent_reviews]))
+    
+    context.update({'totalReviewsPerDay': days_data, 'starOnlyRatio': star_only_ratio, 'averageRatingPerPlace': average_rating_per_place, 'activeUsersToday': active_users_today})
+    return templates.TemplateResponse("dashboard.html", context)
+
+@app.get("/chart/reviews.png")
+def chart_reviews_png(db: Session = Depends(get_db)):
+    n_days = 14
+    now = datetime.utcnow()
+    dates, counts = [], []
     for i in range(n_days - 1, -1, -1):
         d = now - timedelta(days=i)
         start = int(datetime(d.year, d.month, d.day).timestamp() * 1000)
         end = start + 24 * 60 * 60 * 1000
-        count = Review.query.filter(Review.created_at >= start, Review.created_at < end).count()
-        days.append({'date': datetime.utcfromtimestamp(start / 1000).strftime('%Y-%m-%d'), 'count': count})
-    return days
-
-
-class User(db.Model):
-	id = db.Column(db.String, primary_key=True)
-	email = db.Column(db.String, unique=True, nullable=False)
-	name = db.Column(db.String, nullable=False)
-	role = db.Column(db.String(10), nullable=False, default='student')  # 'admin' or 'student'
-	university = db.Column(db.String, nullable=True)
-	password = db.Column(db.String, nullable=True)
-	total_reviews = db.Column(db.Integer, default=0)
-
-
-class Place(db.Model):
-	id = db.Column(db.Integer, primary_key=True)
-	name = db.Column(db.String, nullable=False)
-	type = db.Column(db.String, nullable=True)
-	address = db.Column(db.String, nullable=True)
-	photo = db.Column(db.String, nullable=True)
-	tags = db.Column(db.String, nullable=True)  # comma separated
-	creator_id = db.Column(db.String, db.ForeignKey('user.id'), nullable=True)
-	description = db.Column(db.Text, nullable=True)
-	created_at = db.Column(db.Integer, default=lambda: now_ts())
-
-
-class Review(db.Model):
-	id = db.Column(db.Integer, primary_key=True)
-	place_id = db.Column(db.Integer, db.ForeignKey('place.id'), nullable=False)
-	user_id = db.Column(db.String, db.ForeignKey('user.id'), nullable=False)
-	rating = db.Column(db.Integer, nullable=False)
-	text = db.Column(db.Text, nullable=True)
-	created_at = db.Column(db.Integer, default=lambda: now_ts())
-
-
-def init_db():
-	if not os.path.exists(DB_PATH):
-		db.create_all()
-		print('Initialized database at', DB_PATH)
-
-
-def ensure_place_creator_column():
-	# Ensure the 'creator_id' column exists on 'place' table (SQLite)
-	try:
-		res = db.session.execute(text('PRAGMA table_info(place)'))
-		cols = [row[1] for row in res]
-		if 'creator_id' not in cols:
-			db.session.execute(text('ALTER TABLE place ADD COLUMN creator_id TEXT'))
-			db.session.commit()
-			print("Added 'creator_id' column to 'place' table")
-	except Exception as e:
-		print('ensure_place_creator_column error:', e)
-
-
-def ensure_place_description_column():
-	# Ensure the 'description' column exists on 'place' table (SQLite)
-	try:
-		res = db.session.execute(text('PRAGMA table_info(place)'))
-		cols = [row[1] for row in res]
-		if 'description' not in cols:
-			db.session.execute(text('ALTER TABLE place ADD COLUMN description TEXT'))
-			db.session.commit()
-			print("Added 'description' column to 'place' table")
-	except Exception as e:
-		print('ensure_place_description_column error:', e)
-
-
-def serialize_place(place):
-	avg = db.session.query(func.avg(Review.rating)).filter(Review.place_id == place.id).scalar() or 0
-	creator_name = None
-	if getattr(place, 'creator_id', None):
-		cu = User.query.get(place.creator_id)
-		creator_name = cu.name if cu else None
-	return {
-		'id': place.id,
-		'name': place.name,
-		'type': place.type,
-		'address': place.address,
-		'photo': place.photo,
-		'tags': place.tags.split(',') if place.tags else [],
-		'createdAt': place.created_at,
-		'avgRating': float(avg),
-		'creatorId': getattr(place, 'creator_id', None),
-		'creatorName': creator_name,
-		'description': getattr(place, 'description', None)
-	}
-
-
-@app.context_processor
-def inject_user():
-	uid = session.get('user_id')
-	user = None
-	if uid:
-		user = User.query.get(uid)
-	return {'current_user': user, 'place_types': PLACE_TYPES}
-
-
-@app.route('/')
-def home():
-	q = request.args.get('q', '')
-	tag = request.args.get('tag','')
-	places = Place.query.all()
-	results = [p for p in places if q.lower() in p.name.lower() and (not tag or (p.tags and tag in p.tags.split(',')))]
-	serialized = [serialize_place(p) for p in results]
-	# trending: top 3 by review count
-	place_counts = []
-	for p in places:
-		count = Review.query.filter_by(place_id=p.id).count()
-		place_counts.append((p, count))
-	place_counts.sort(key=lambda x: x[1], reverse=True)
-	trending = [serialize_place(p[0]) for p in place_counts[:3]]
-	return render_template('home.html', places=serialized, trending=trending, q=q, tag=tag)
-
-
-@app.route('/register', methods=['GET','POST'])
-def register_view():
-	if request.method == 'POST':
-		email = request.form.get('email')
-		name = request.form.get('name')
-		if not email or not name:
-			flash('email and name required')
-			return redirect(url_for('register_view'))
-		if User.query.filter_by(email=email).first():
-			flash('already exists')
-			return redirect(url_for('register_view'))
-		role = 'student'
-		admin_code = request.form.get('admin_code')
-		valid_codes = [os.environ.get('CRITIQUE_ADMIN_CODE'), 'campuseatsadmin2025']
-		if admin_code and admin_code in [c for c in valid_codes if c]:
-			role = 'admin'
-		user = User(id=str(uuid4()), email=email, name=name, university=request.form.get('university',''), password=request.form.get('password','pass'), role=role)
-		db.session.add(user)
-		db.session.commit()
-		session['user_id'] = user.id
-		return redirect(url_for('home'))
-	return render_template('register.html')
-
-
-@app.route('/login', methods=['GET','POST'])
-def login_view():
-	if request.method == 'POST':
-		email = request.form.get('email')
-		password = request.form.get('password')
-		user = User.query.filter_by(email=email).first()
-		if not user:
-			flash('Account not found')
-			return redirect(url_for('login_view'))
-		if not password or user.password != password:
-			flash('Invalid email or password')
-			return redirect(url_for('login_view'))
-		session['user_id'] = user.id
-		return redirect(url_for('home'))
-	return render_template('login.html')
-
-
-@app.route('/logout')
-def logout_view():
-	session.pop('user_id', None)
-	return redirect(url_for('home'))
-
-
-@app.route('/places/new', methods=['GET','POST'])
-def new_place():
-	# Require login to access add place (both GET form and POST submission)
-	user_id = session.get('user_id')
-	if not user_id:
-		flash('Please login to add a place')
-		return redirect(url_for('login_view'))
-	if request.method == 'POST':
-		name = request.form.get('name')
-		if not name:
-			flash('name required')
-			return redirect(url_for('new_place'))
-		tags = request.form.get('tags','')
-		p = Place(
-			name=name,
-			type=request.form.get('type',''),
-			address=request.form.get('address',''),
-			tags=tags,
-			description=request.form.get('description',''),
-			creator_id=user_id
-		)
-		db.session.add(p)
-		db.session.commit()
-		return redirect(url_for('home'))
-	return render_template('add_place.html')
-
-
-@app.route('/places/<int:place_id>', methods=['GET','POST'])
-def place_view(place_id):
-	p = Place.query.get_or_404(place_id)
-	if request.method == 'POST':
-		# post review
-		user_id = session.get('user_id')
-		if not user_id:
-			flash('Please login to post reviews')
-			return redirect(url_for('login_view'))
-		rating = int(request.form.get('rating',5))
-		text = request.form.get('text','')
-		r = Review(place_id=place_id, user_id=user_id, rating=rating, text=text)
-		db.session.add(r)
-		user = User.query.get(user_id)
-		if user:
-			user.total_reviews = (user.total_reviews or 0) + 1
-		db.session.commit()
-		return redirect(url_for('place_view', place_id=place_id))
-	reviews = Review.query.filter_by(place_id=place_id).order_by(Review.created_at.desc()).all()
-	reviews_ser = []
-	for r in reviews:
-		u = User.query.get(r.user_id)
-		reviews_ser.append({'id': r.id, 'user': u.name if u else r.user_id, 'rating': r.rating, 'text': r.text, 'createdAt': r.created_at, 'userId': r.user_id})
-	return render_template('place.html', place=serialize_place(p), reviews=reviews_ser)
-
-
-@app.route('/places/<int:place_id>/delete', methods=['POST'])
-def delete_place(place_id):
-	# Admin-only: delete a place and all its reviews
-	user_id = session.get('user_id')
-	if not user_id:
-		flash('Please login as admin to delete places')
-		return redirect(url_for('login_view'))
-	current_user = User.query.get(user_id)
-	if not current_user or current_user.role != 'admin':
-		flash('Admins only')
-		return redirect(url_for('place_view', place_id=place_id))
-
-	place = Place.query.get_or_404(place_id)
-
-	# Decrement authors' review counts and delete associated reviews
-	reviews = Review.query.filter_by(place_id=place_id).all()
-	for r in reviews:
-		author = User.query.get(r.user_id)
-		if author:
-			author.total_reviews = max(0, (author.total_reviews or 0) - 1)
-		db.session.delete(r)
-
-	db.session.delete(place)
-	db.session.commit()
-	flash('Place deleted')
-	return redirect(url_for('home'))
-
-
-@app.route('/reviews/<int:review_id>/edit', methods=['POST'])
-def edit_review(review_id):
-	r = Review.query.get_or_404(review_id)
-	user_id = session.get('user_id')
-	if not user_id or user_id != r.user_id:
-		flash('Not authorized')
-		return redirect(url_for('place_view', place_id=r.place_id))
-	r.text = request.form.get('text', r.text)
-	r.rating = int(request.form.get('rating', r.rating))
-	db.session.commit()
-	return redirect(url_for('place_view', place_id=r.place_id))
-
-
-@app.route('/reviews/<int:review_id>/delete', methods=['POST'])
-def delete_review(review_id):
-	r = Review.query.get_or_404(review_id)
-	user_id = session.get('user_id')
-	if not user_id:
-		flash('Not authorized')
-		return redirect(url_for('place_view', place_id=r.place_id))
-	current_user = User.query.get(user_id)
-	if not current_user or (current_user.role != 'admin' and user_id != r.user_id):
-		flash('Not authorized')
-		return redirect(url_for('place_view', place_id=r.place_id))
-	user = User.query.get(r.user_id)
-	if user:
-		user.total_reviews = max(0, (user.total_reviews or 0) - 1)
-	db.session.delete(r)
-	db.session.commit()
-	return redirect(url_for('place_view', place_id=r.place_id))
-
-
-def generate_reviews_per_day_chart(days):
-	dates = [d['date'] for d in days]
-	counts = [d['count'] for d in days]
-	fig, ax = plt.subplots(figsize=(8,3))
-	ax.plot(dates, counts, marker='o')
-	ax.set_title('Reviews per day')
-	ax.set_xticks(dates)
-	ax.tick_params(axis='x', rotation=45)
-	fig.tight_layout()
-	buf = io.BytesIO()
-	fig.savefig(buf, format='png')
-	plt.close(fig)
-	buf.seek(0)
-	return buf
-
-
-@app.route('/dashboard')
-def dashboard():
-	def get_current_user():
-		user_id = session.get('user_id')
-		if user_id:
-			return User.query.filter_by(id=user_id).first()
-		return None
-	user = get_current_user()
-	if not user:
-		return redirect(url_for('login_view'))
-	if user.role != 'admin':
-		return render_template('dashboard.html',
-			error='Admins only: metrics are restricted.',
-			totalReviewsPerDay=None,
-			starOnlyRatio=None,
-			averageRatingPerPlace=None,
-			activeUsersToday=None)
-	days = compute_reviews_per_day(14)
-
-	total = Review.query.count()
-	star_only = Review.query.filter((Review.text == None) | (Review.text == '')).count()
-	star_only_ratio_pct = (star_only / total) * 100 if total else 0
-
-	# Average rating per place (with review counts)
-	avg_rows = (
-		db.session.query(
-			Place.id,
-			Place.name,
-			func.avg(Review.rating).label('avg_rating'),
-			func.count(Review.id).label('review_count')
-		)
-		.join(Review, Review.place_id == Place.id)
-		.group_by(Place.id)
-		.order_by(func.count(Review.id).desc())
-		.all()
-	)
-	average_rating_per_place = [
-		{
-			'placeId': r[0],
-			'name': r[1],
-			'avgRating': float(r[2] or 0),
-			'count': int(r[3] or 0)
-		} for r in avg_rows
-	]
-
-	now = datetime.utcnow()
-	day24 = int((now - timedelta(days=1)).timestamp() * 1000)
-	active_users_today = len(set([r.user_id for r in Review.query.filter(Review.created_at >= day24).all()]))
-
-	# Render with the requested metric names
-	return render_template(
-		'dashboard.html',
-		totalReviewsPerDay=days,
-		starOnlyRatio=star_only_ratio_pct,
-		averageRatingPerPlace=average_rating_per_place,
-		activeUsersToday=active_users_today
-	)
-
-
-@app.route('/chart/reviews.png')
-def chart_reviews_png():
-	# return latest chart via regenerating
-	days = compute_reviews_per_day(14)
-	buf = generate_reviews_per_day_chart(days)
-	return send_file(buf, mimetype='image/png')
-
+        count = db.query(Review).filter(Review.created_at >= start, Review.created_at < end).count()
+        dates.append(d.strftime('%Y-%m-%d'))
+        counts.append(count)
+    fig, ax = plt.subplots(figsize=(8,3))
+    ax.plot(dates, counts, marker='o')
+    ax.set_title('Reviews per day')
+    ax.set_xticks(dates)
+    ax.tick_params(axis='x', rotation=45)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+    buf.seek(0)
+    return Response(content=buf.getvalue(), media_type="image/png")
 
 if __name__ == '__main__':
-	with app.app_context():
-		init_db()
-		ensure_place_creator_column()
-		ensure_place_description_column()
-	app.run(host='0.0.0.0', port=5000, debug=True)
+    import uvicorn
+    uvicorn.run("app:app", host='0.0.0.0', port=8000, reload=True)

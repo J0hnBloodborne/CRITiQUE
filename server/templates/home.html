@@ -1,43 +1,90 @@
 {% extends 'base.html' %}
+
 {% block content %}
-  <section class="hero">
-    <h1>Discover & Review Campus Food</h1>
-    <form method="get" action="/" class="search-form">
-      <input type="text" name="q" placeholder="Search places..." value="{{ q }}">
-      <input type="text" name="tag" placeholder="Tag" value="{{ tag }}">
-      <button type="submit" class="btn">Search</button>
-    </form>
-  </section>
+<div class="bg-stone-50 dark:bg-stone-950 min-h-screen transition-colors duration-300">
+  
+  <section class="relative bg-stone-900 text-white py-24 px-6 overflow-hidden">
+    <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1974&auto=format&fit=crop')] bg-cover bg-center"></div>
+    <div class="relative max-w-4xl mx-auto text-center space-y-6">
+      <h1 class="font-serif text-5xl md:text-7xl font-bold leading-tight">
+        Find your next <span class="text-primary italic">obsession</span>.
+      </h1>
+      <p class="text-lg md:text-xl text-stone-300 font-light max-w-2xl mx-auto">
+        Discover the best campus eats, rated by students who actually eat there.
+      </p>
 
-  <section>
-    <h2>Trending</h2>
-    <div class="card-list">
-      {% for t in trending %}
-        <div class="card">
-          <h3><a href="{{ url_for('place_view', place_id=t.id) }}">{{ t.name }}</a></h3>
-          <div class="muted">{{ t.type }}</div>
-          <div>⭐ {{ '%.1f'|format(t.avgRating) }}</div>
-        </div>
-      {% else %}
-        <p>No trending places yet.</p>
-      {% endfor %}
+      <div class="mt-8 relative max-w-xl mx-auto">
+        <input 
+          type="text" 
+          name="q" 
+          placeholder="Search for coffee, burgers, or vibe..." 
+          value="{{ q }}"
+          class="w-full pl-6 pr-4 py-4 rounded-full text-stone-900 shadow-2xl focus:ring-4 focus:ring-primary/50 focus:outline-none text-lg transition-all"
+          hx-get="/" 
+          hx-trigger="keyup changed delay:500ms" 
+          hx-target="#place-grid" 
+          hx-select="#place-grid"
+          hx-push-url="true"
+        >
+        <button class="absolute right-3 top-2 bottom-2 bg-primary hover:bg-primary-hover text-white px-6 rounded-full font-bold transition-all">
+          Go
+        </button>
+      </div>
     </div>
   </section>
 
-  <section>
-    <h2>All Places</h2>
-    <div class="card-list">
+  <section class="max-w-6xl mx-auto px-6 py-16">
+    
+    <div class="flex items-end justify-between mb-12 border-b border-stone-200 dark:border-stone-800 pb-4">
+      <h2 class="font-serif text-3xl font-bold text-stone-900 dark:text-white">Trending Spots</h2>
+      <a href="{{ url_for('home') }}" class="text-sm font-bold uppercase tracking-widest text-primary hover:underline">View All</a>
+    </div>
+
+    <div id="place-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       {% for p in places %}
-        <div class="card">
-          <h3><a href="{{ url_for('place_view', place_id=p.id) }}">{{ p.name }}</a></h3>
-          <div class="muted">{{ p.type }} — {{ p.address }}</div>
-          <div>Tags: {% for t in p.tags %}<span class="tag">{{ t }}</span>{% endfor %}</div>
-          <div>⭐ {{ '%.1f'|format(p.avgRating) }}</div>
-        </div>
+        <a href="{{ url_for('place_view', place_id=p.id) }}" class="group block h-full">
+          <div class="bg-white dark:bg-stone-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-stone-100 dark:border-stone-800 h-full flex flex-col">
+            
+            <div class="h-64 overflow-hidden relative bg-stone-200 dark:bg-stone-800">
+              <img 
+                src="{{ p.photo if p.photo else 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop' }}" 
+                alt="{{ p.name }}" 
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              >
+              <div class="absolute top-4 right-4 bg-white/90 dark:bg-stone-900/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm text-stone-900 dark:text-white border border-stone-200 dark:border-stone-700">
+                {{ p.type or 'Spot' }}
+              </div>
+            </div>
+
+            <div class="p-6 flex flex-col flex-grow">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-serif text-2xl font-bold text-stone-900 dark:text-white group-hover:text-primary transition-colors">
+                  {{ p.name }}
+                </h3>
+                <div class="flex items-center gap-1 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded text-green-700 dark:text-green-400 font-bold text-sm">
+                  <span>★</span>
+                  <span>{{ '%.1f'|format(p.avgRating) }}</span>
+                </div>
+              </div>
+              
+              <p class="text-stone-500 dark:text-stone-400 text-sm mb-4 line-clamp-2">{{ p.description or 'No description available yet.' }}</p>
+              
+              <div class="mt-auto flex flex-wrap gap-2">
+                {% for tag in p.tags[:3] %}
+                  <span class="text-[10px] uppercase font-bold text-stone-400 dark:text-stone-500 bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded-md">
+                    #{{ tag.strip() }}
+                  </span>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </a>
       {% else %}
-        <p>No places found.</p>
+        <div class="col-span-full text-center py-20 opacity-50">
+          <p class="font-serif text-2xl text-stone-400">No places found.</p>
+        </div>
       {% endfor %}
     </div>
   </section>
+</div>
 {% endblock %}
-

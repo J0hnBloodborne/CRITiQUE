@@ -1,54 +1,84 @@
 {% extends 'base.html' %}
+
 {% block content %}
-  <section class="dashboard-section">
-    <h2>Admin Dashboard</h2>
-    {% if error %}
-      <p style="color:red;">{{ error }}</p>
-    {% else %}
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Active users (last 24h)</div>
-          <div class="stat-value">{{ activeUsersToday if activeUsersToday is not none else 'N/A' }}</div>
+<div class="max-w-7xl mx-auto py-12 px-6">
+  
+  <div class="flex items-center justify-between mb-12">
+    <div>
+      <h1 class="font-serif text-4xl font-bold text-stone-900">Admin Dashboard</h1>
+      <p class="text-stone-500 mt-1">System metrics and moderation.</p>
+    </div>
+    <span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
+      Superuser Mode
+    </span>
+  </div>
+
+  {% if error %}
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 text-red-700 font-bold rounded">
+      {{ error }}
+    </div>
+  {% else %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+        <div class="text-xs font-bold uppercase text-stone-400 mb-2">Active Users (24h)</div>
+        <div class="text-4xl font-serif font-bold text-stone-900">
+          {{ activeUsersToday if activeUsersToday is not none else '-' }}
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Star-only reviews</div>
-          <div class="stat-value">
-            {% if starOnlyRatio is not none %}
-              {{ '%.1f'|format(starOnlyRatio) }}%
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+        <div class="text-xs font-bold uppercase text-stone-400 mb-2">Star-Only Reviews</div>
+        <div class="text-4xl font-serif font-bold text-stone-900">
+           {% if starOnlyRatio is not none %}
+              {{ '%.0f'|format(starOnlyRatio) }}<span class="text-xl text-stone-400">%</span>
             {% else %}
-              N/A
+              -
             {% endif %}
-          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 opacity-50">
+        <div class="text-xs font-bold uppercase text-stone-400 mb-2">Total Places</div>
+        <div class="text-4xl font-serif font-bold text-stone-900">
+           --
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <div class="lg:col-span-2 bg-white p-8 rounded-3xl shadow-sm border border-stone-100">
+        <h3 class="font-serif text-xl font-bold text-stone-900 mb-6">Review Velocity</h3>
+        <div class="bg-stone-50 rounded-xl p-4 overflow-hidden flex items-center justify-center">
+          <img src="/chart/reviews.png" alt="Reviews per day chart" class="max-w-full h-auto mix-blend-multiply" />
         </div>
       </div>
 
-      <div class="panel">
-        <h3>Reviews per day</h3>
-        <img src="/chart/reviews.png" alt="Reviews per day chart" style="max-width:100%" />
-        {# Removed verbose date dump list to keep the UI clean; chart is sufficient #}
-      </div>
-
-      <div class="panel">
-        <h3>Average rating per place</h3>
+      <div class="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 flex flex-col h-full">
+        <h3 class="font-serif text-xl font-bold text-stone-900 mb-6">Place Health</h3>
+        
         {% if averageRatingPerPlace %}
-          <table>
-            <thead>
-              <tr><th>Place</th><th>Avg Rating</th><th>Reviews</th></tr>
-            </thead>
-            <tbody>
-              {% for p in averageRatingPerPlace %}
-                <tr>
-                  <td>{{ p.name }}</td>
-                  <td>{{ '%.2f'|format(p.avgRating) }}</td>
-                  <td>{{ p.count }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+          <div class="overflow-y-auto max-h-96 pr-2 space-y-4">
+            {% for p in averageRatingPerPlace %}
+              <div class="flex items-center justify-between p-3 rounded-xl hover:bg-stone-50 transition-colors">
+                <div class="overflow-hidden">
+                  <div class="font-bold text-stone-800 truncate">{{ p.name }}</div>
+                  <div class="text-xs text-stone-400">{{ p.count }} reviews</div>
+                </div>
+                <div class="flex items-center gap-1 bg-stone-100 px-2 py-1 rounded text-stone-700 font-bold text-sm">
+                  <span>★</span>
+                  <span>{{ '%.1f'|format(p.avgRating) }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
         {% else %}
-          <p class="muted">No ratings yet.</p>
+          <p class="text-stone-400 italic">No ratings yet.</p>
         {% endif %}
       </div>
-    {% endif %}
-  </section>
+    </div>
+
+  {% endif %}
+</div>
 {% endblock %}

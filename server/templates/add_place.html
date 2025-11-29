@@ -1,18 +1,76 @@
 {% extends 'base.html' %}
+
 {% block content %}
-  <h2>Add Place</h2>
-  <form method="post" action="/places/new">
-    <label>Name<br><input name="name" required></label><br>
-    <label>Type<br>
-      <select name="type">
-        {% for t in place_types %}
-          <option value="{{ t }}">{{ t }}</option>
-        {% endfor %}
-      </select>
-    </label><br>
-    <label>Address<br><input name="address"></label><br>
-    <label>Description<br><textarea name="description" rows="4"></textarea></label><br>
-    <label>Tags (comma separated)<br><input name="tags"></label><br>
-    <button type="submit">Create</button>
-  </form>
+<div class="max-w-3xl mx-auto py-16 px-6">
+  
+  <div class="mb-8">
+    <h1 class="font-serif text-4xl font-bold text-stone-900">Add a New Spot</h1>
+    <p class="text-stone-500 mt-2">Found a hidden gem? Put it on the map.</p>
+  </div>
+
+  <div class="bg-white rounded-3xl shadow-xl border border-stone-100 overflow-hidden">
+    <form method="post" action="/places/new" class="p-8 md:p-12 space-y-8">
+      
+      <div>
+        <label class="block text-sm font-bold text-stone-900 mb-2">Place Name</label>
+        <input name="name" required 
+          class="w-full text-2xl font-serif font-bold border-b-2 border-stone-200 py-2 focus:border-primary focus:outline-none transition-colors placeholder-stone-300"
+          placeholder="The Rusty Spoon">
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <label class="block text-xs font-bold uppercase text-stone-500 mb-2">Category</label>
+          <div class="relative">
+            <select name="type" class="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 appearance-none focus:ring-2 focus:ring-primary focus:outline-none font-medium">
+              {% for t in place_types %}
+                <option value="{{ t }}">{{ t }}</option>
+              {% endfor %}
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-stone-500">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-stone-500 mb-2">Location / Address</label>
+          <input name="address" 
+            class="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none"
+            placeholder="Student Center, 2nd Floor">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase text-stone-500 mb-2">Photo URL (Thumbnail)</label>
+        <input name="photo" type="url"
+          class="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none font-mono text-sm"
+          placeholder="https://images.unsplash.com/photo-1555396273...">
+        <p class="text-[10px] text-stone-400 mt-2">Paste a direct image link (ends in .jpg or .png usually).</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase text-stone-500 mb-2">The Vibe</label>
+        <textarea name="description" rows="4" 
+          class="w-full bg-stone-50 border border-stone-200 rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none"
+          placeholder="Best coffee on campus, but the wifi is spotty..."></textarea>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold uppercase text-stone-500 mb-2">Tags</label>
+        <input name="tags" 
+          class="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none"
+          placeholder="cheap, spicy, vegan, late-night (comma separated)">
+      </div>
+
+      <div class="pt-4 flex items-center justify-end gap-4">
+        <a href="{{ url_for('home') }}" class="text-stone-500 font-bold hover:text-stone-800 transition-colors">Cancel</a>
+        <button type="submit" class="bg-stone-900 hover:bg-primary text-white font-bold py-3 px-8 rounded-xl shadow-lg transition-transform active:scale-95">
+          Create Spot
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
 {% endblock %}
